@@ -24,6 +24,10 @@ describe('問題データ', () => {
     for (const u of UNITS) expect(u.id, u.id).toMatch(new RegExp(`^g${u.grade}-[a-z]+$`));
   });
 
+  it('手書きの単元は、どれも 40 問以上ある (4 回やらないと一巡しない)', () => {
+    for (const u of UNITS.filter((u) => !u.daily)) expect(u.questions.length, u.id).toBeGreaterThanOrEqual(40);
+  });
+
   it('どの学年も、110 問以上ある。どの単元も、1 回分 (10 問) 以上ある', () => {
     for (const grade of GRADES) {
       const units = unitsOf(grade);
@@ -121,6 +125,20 @@ describe('今日のチャレンジ', () => {
     expect(GRADES.filter((g) => unitsOf(g).some((u) => u.daily === 'extra'))).toEqual([3, 4, 6]);
   });
 
+  it('ふつうの単元の問題は、一巡するまで同じ問題が出ない (前の日の続きから出る)', () => {
+    for (const grade of GRADES) {
+      const core = unitsOf(grade).filter((u) => !u.daily);
+      const size = Math.min(...core.map((u) => u.questions.length));
+      // いちばん小さい単元が一巡するより短い期間。1 日にどの単元からも 2 問までしか出ない
+      const span = days.slice(0, Math.floor(size / 2));
+      const ids = span.flatMap((date) => dailyQuiz(UNITS, grade, date).items.filter((i) => !i.unit.daily).map((i) => i.question.id));
+      expect(new Set(ids).size, `${grade}年`).toBe(ids.length);
+      // どの単元からも、同じくらいの数が出る
+      const counts = core.map((u) => ids.filter((id) => id.startsWith(`${u.id}-`)).length);
+      expect(Math.max(...counts) - Math.min(...counts), `${grade}年`).toBeLessThanOrEqual(1);
+    }
+  });
+
   it('1 年の間に、その学年のふつうの単元の問題が全部 1 回は出る', () => {
     for (const grade of GRADES) {
       const seen = new Set(days.flatMap((date) => dailyQuiz(UNITS, grade, date).items.filter((i) => !i.unit.daily).map((i) => i.question.id)));
@@ -205,12 +223,12 @@ describe('図を見て答える単元', () => {
     for (const c of COUNTRIES) expect(existsSync(`public/flags/${c.code.toLowerCase()}.svg`), c.code).toBe(true);
   });
 
-  it('まちがいの候補が多い問題は、やる日によって選択肢の組み合わせが変わる', () => {
+  it('まちがいの候補が多い問題は、出るたびに選択肢の組み合わせが変わる', () => {
     const unit = unitById('g6-flagasia')!;
     const target = unit.questions[0];
     const seen = new Set<string>();
-    for (let day = 0; day < 60; day++) {
-      const item = unitQuiz(unit, addDays('2026-10-01', day)).items.find((i) => i.question === target);
+    for (let round = 0; round < 200; round++) {
+      const item = unitQuiz(unit, round).items.find((i) => i.question === target);
       if (!item) continue;
       expect(item.choices[item.answer]).toBe(target.choices[0]);
       expect(item.choiceFigures).toBeUndefined();
@@ -218,27 +236,50 @@ describe('図を見て答える単元', () => {
     }
     expect(seen.size).toBeGreaterThan(1);
     // 図の選択肢は、名前と同じならびでえらばれる
-    const byFigure = unitQuiz(unit, '2026-10-13').items.find((i) => i.choiceFigures)!;
+    const byFigure = [0, 1, 2, 3].flatMap((round) => unitQuiz(unit, round).items).find((i) => i.choiceFigures)!;
     expect(byFigure.choiceFigures).toHaveLength(4);
     expect(byFigure.choiceFigures!.map((f) => (f.kind === 'flag' ? COUNTRIES.find((c) => c.code === f.code)!.name : ''))).toEqual(byFigure.choices);
   });
 });
 
 describe('単元の練習', () => {
-  it('その単元から 10 問。日がかわると、問題か順番が変わる', () => {
+  it('その単元から 10 問。回が同じなら同じ問題、回が進むとちがう問題になる', () => {
     for (const unit of UNITS) {
-      const quiz = unitQuiz(unit, '2026-10-13');
+      const quiz = unitQuiz(unit, 0);
       expect(quiz.id).toBe(`unit-${unit.id}`);
+      expect(quiz.round).toBe(0);
       expect(quiz.items, unit.id).toHaveLength(QUIZ_LENGTH);
       expect(new Set(quiz.items.map((i) => i.question.id)).size).toBe(QUIZ_LENGTH);
       for (const item of quiz.items) expect(item.unit).toBe(unit);
-      expect(unitQuiz(unit, '2026-10-13').sig).toBe(quiz.sig);
-      expect(unitQuiz(unit, '2026-10-14').sig).not.toBe(quiz.sig);
+      expect(unitQuiz(unit, 0).sig).toBe(quiz.sig);
+      expect(unitQuiz(unit, 1).sig).not.toBe(quiz.sig);
     }
   });
 
+  it('一巡するまで、同じ問題は出ない (40 問の単元なら、4 回で全部が 1 回ずつ出る)', () => {
+    for (const unit of UNITS) {
+      const rounds = Math.floor(unit.questions.length / QUIZ_LENGTH);
+      const ids = Array.from({ length: rounds }, (_, r) => unitQuiz(unit, r).items.map((i) => i.question.id)).flat();
+      expect(new Set(ids).size, unit.id).toBe(rounds * QUIZ_LENGTH);
+    }
+  });
+
+  it('何巡しても、1 回の 10 問の中に同じ問題は出ない (巡のさかいでも)', () => {
+    for (const unit of UNITS.filter((u) => !u.daily)) {
+      for (let round = 0; round < 30; round++) {
+        const ids = unitQuiz(unit, round).items.map((i) => i.question.id);
+        expect(new Set(ids).size, `${unit.id} ${round}回目`).toBe(QUIZ_LENGTH);
+      }
+    }
+    // 2 巡目は、1 巡目とちがうならびになる
+    const unit = unitById('g3-map')!;
+    const first = [0, 1, 2, 3].flatMap((r) => unitQuiz(unit, r).items.map((i) => i.question.id));
+    const second = [4, 5, 6, 7].flatMap((r) => unitQuiz(unit, r).items.map((i) => i.question.id));
+    expect(second).not.toEqual(first);
+  });
+
   it('正解した数を数える', () => {
-    const quiz = unitQuiz(unitById('g3-map')!, '2026-10-13');
+    const quiz = unitQuiz(unitById('g3-map')!, 0);
     const right = quiz.items.map((i) => i.answer);
     expect(countCorrect(quiz, right)).toBe(10);
     expect(countCorrect(quiz, right.map((a, i) => (i < 3 ? (a + 1) % 4 : a)))).toBe(7);

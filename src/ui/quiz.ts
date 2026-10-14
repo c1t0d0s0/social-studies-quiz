@@ -1,6 +1,6 @@
 import { countCorrect, type Figure, type Quiz, type QuizItem } from '../core/quiz';
 import { UNIT_PASS, type StampReward } from '../core/rewards';
-import { addClear, addStamp, balance, loadProgress, saveProgress, type Progress } from '../core/storage';
+import { addClear, addStamp, balance, loadProgress, saveProgress } from '../core/storage';
 import { h, hanamaru, homeButton, withRuby } from './dom';
 import { figure } from './figure';
 import { playChirp, playCorrect, playWrong, primeSound } from './sound';
@@ -27,10 +27,11 @@ interface Reward {
 
 /**
  * クイズの画面。1 問ずつ出し、答えるたびに正解と解説を見せる。
- * today をわたすと「今日のチャレンジ」としてあつかい、終えたときにスタンプを押す。
+ * 今日のチャレンジは、終えたときに today のスタンプを押す。
+ * onRetry は「もう一回 ちょうせん」をおしたときによぶ (単元の練習だけ。次の回の問題に進めて、画面を作り直す)。
  * もどり値は、ほかの画面に移るときによぶ後かたづけ。
  */
-export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: string): () => void {
+export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: string, onRetry?: () => void): () => void {
   let progress = loadProgress(quiz);
   let onKey: ((ev: KeyboardEvent) => void) | null = null;
   const total = quiz.items.length;
@@ -179,13 +180,6 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
     const kind = quiz.items.map((i) => i.question.figure ?? i.choiceFigures?.[0]).find((f) => f)?.kind;
     const zukan = kind && ZUKAN[kind];
 
-    const retry = (): void => {
-      const fresh: Progress = { sig: quiz.sig, answers: [], done: false };
-      progress = fresh;
-      saveProgress(quiz.id, fresh);
-      showQuestion();
-    };
-
     frame(
       T.progress(correct, total),
       h(
@@ -204,9 +198,9 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
       h(
         'div',
         { class: 'result-actions' },
-        // 今日のチャレンジは 1 日 1 回。単元の練習は何回でもやりなおせる
+        // 今日のチャレンジは 1 日 1 回。単元の練習は何回でもでき、やるたびに次の 10 問に進む
         zukan ? h('a', { class: 'btn', href: zukan }, T.seeZukan) : null,
-        quiz.kind === 'unit' ? h('button', { type: 'button', class: 'btn', onclick: retry }, T.retry) : null,
+        onRetry ? h('button', { type: 'button', class: 'btn', onclick: onRetry }, T.retry) : null,
         h('a', { class: 'btn btn-primary', href: '#/' }, T.goHome),
       ),
     );

@@ -8,9 +8,10 @@ import type { OwnedCard, Progress, Settings, Snapshot } from './snapshot';
 /** 決め手がないときに、いつも同じほうをえらぶための比べ方 */
 const pickStable = <T>(a: T, b: T): T => (JSON.stringify(a) <= JSON.stringify(b) ? a : b);
 
-/** 途中経過: 問題が同じなら、クリア済みを優先。どちらも途中なら、多く答えているほう */
+/** 途中経過: 単元の練習の回がちがえば、進んでいるほう。問題が同じなら、クリア済みを優先。どちらも途中なら、多く答えているほう */
 export function mergeProgress(a: Progress, b: Progress): Progress {
   const newer = (a.at ?? 0) !== (b.at ?? 0) ? ((a.at ?? 0) > (b.at ?? 0) ? a : b) : pickStable(a, b);
+  if ((a.round ?? 0) !== (b.round ?? 0)) return (a.round ?? 0) > (b.round ?? 0) ? a : b;
   // 問題そのものが入れかわっているときは、新しく保存されたほう
   if (a.sig !== b.sig) return newer;
   const base = a.done !== b.done ? (a.done ? a : b) : a.answers.length !== b.answers.length ? (a.answers.length > b.answers.length ? a : b) : newer;

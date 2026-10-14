@@ -1,7 +1,8 @@
 import './styles.css';
 import { restoreStore, startCloud } from './cloud';
 import { jstDate } from './core/date';
-import { dailyQuiz, unitQuiz } from './core/quiz';
+import { dailyQuiz, unitQuiz, unitQuizId } from './core/quiz';
+import { saveProgress, unitRound } from './core/storage';
 import { isGrade } from './core/snapshot';
 import { UNITS, unitById } from './data/units';
 import { renderCards } from './ui/cards';
@@ -30,7 +31,13 @@ function route(): void {
   if (daily && isGrade(grade)) {
     cleanup = renderQuiz(app, dailyQuiz(UNITS, grade, today), `${T.daily}（${T.grade(grade)}）`, today);
   } else if (unit) {
-    cleanup = renderQuiz(app, unitQuiz(unit, today), unit.title, today);
+    const round = unitRound(unitQuizId(unit.id));
+    cleanup = renderQuiz(app, unitQuiz(unit, round), unit.title, today, () => {
+      // 「もう一回」は、次の回 (続きの 10 問) に進む
+      const next = unitQuiz(unit, round + 1);
+      saveProgress(next.id, { sig: next.sig, answers: [], done: false, round: round + 1 });
+      route();
+    });
   } else if (isZukanKind(zukan)) {
     renderZukan(app, zukan);
   } else if (location.hash === '#/cards') {

@@ -1,8 +1,8 @@
 import { jstDate } from '../core/date';
-import { dailyQuiz, unitQuiz, type Unit } from '../core/quiz';
+import { dailyQuiz, unitQuiz, unitQuizId, type Unit } from '../core/quiz';
 import { currentRun } from '../core/rewards';
 import { GRADES, type Grade } from '../core/snapshot';
-import { balance, getGrade, getSound, getStamps, pruneOldDaily, setGrade, setSound, statusOf } from '../core/storage';
+import { balance, getGrade, getSound, getStamps, pruneOldDaily, setGrade, setSound, statusOf, unitRound } from '../core/storage';
 import { UNITS, unitsOf } from '../data/units';
 import { accountBox } from './account';
 import { h, hanamaru, withRuby } from './dom';
@@ -51,8 +51,8 @@ function soundSwitch(): HTMLElement {
   return h('p', { class: 'settings' }, btn);
 }
 
-function unitTile(unit: Unit, index: number, today: string): HTMLElement {
-  const status = statusOf(unitQuiz(unit, today));
+function unitTile(unit: Unit, index: number): HTMLElement {
+  const status = statusOf(unitQuiz(unit, unitRound(unitQuizId(unit.id))));
   return h(
     'a',
     { class: `unit unit-${status}`, href: `#/unit/${unit.id}` },
@@ -120,7 +120,7 @@ export function renderHome(root: HTMLElement): void {
           { 'aria-labelledby': 'units-title' },
           h('h2', { id: 'units-title' }, T.units(grade)),
           h('p', { class: 'section-note' }, T.unitsNote),
-          h('div', { class: 'units' }, ...core.map((u, i) => unitTile(u, i, today))),
+          h('div', { class: 'units' }, ...core.map((u, i) => unitTile(u, i))),
         ),
         // 図を見て答える単元と、都道府県のちしきの単元 (ない学年もある)
         extra.length > 0
@@ -129,7 +129,7 @@ export function renderHome(root: HTMLElement): void {
               { 'aria-labelledby': 'figure-title' },
               h('h2', { id: 'figure-title' }, T.figureUnits),
               withRuby('p', 'section-note', T.figureUnitsNote),
-              h('div', { class: 'units' }, ...extra.map((u, i) => unitTile(u, core.length + i, today))),
+              h('div', { class: 'units' }, ...extra.map((u, i) => unitTile(u, core.length + i))),
             )
           : null,
         h(

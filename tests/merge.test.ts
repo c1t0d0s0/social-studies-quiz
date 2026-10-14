@@ -49,6 +49,14 @@ describe('2 か所の記録を合わせる', () => {
     expect(mergeProgress(less, more).at).toBe(9);
   });
 
+  it('単元の練習の回がちがえば、進んでいるほう (古い回のクリア済みや、あとから保存したものより優先)', () => {
+    const before = prog([0, 1, 2], { sig: 'round0', done: true, at: 9 });
+    const next = prog([], { sig: 'round1', round: 1, at: 5 });
+    expect(mergeProgress(before, next)).toEqual(next);
+    expect(mergeProgress(next, before)).toEqual(next);
+    expect(mergeProgress(prog([1], { sig: 'round2', round: 2, at: 1 }), next).round).toBe(2);
+  });
+
   it('問題が入れかわっていたら、新しく保存されたほう', () => {
     const old = prog([0, 1, 2], { sig: 'old', done: true, at: 1 });
     const fresh = prog([2], { sig: 'new', at: 5 });
@@ -147,6 +155,11 @@ describe('Firestore の形との変換', () => {
     expect(doc).toMatchObject({ schema: 1, status: 'playing', updatedAt: 99 });
     expect(fromProgressDoc(doc)).toEqual(p);
     expect(toProgressDoc(prog([0], { done: true }), 5)).toMatchObject({ status: 'done', updatedAt: 5 });
+    // 単元の練習の回も出し入れできる (0 回目は書かない)
+    const later = prog([2], { round: 3, at: 7 });
+    expect(toProgressDoc(later, 1).data).toEqual({ sig: 's', answers: [2], round: 3 });
+    expect(fromProgressDoc(toProgressDoc(later, 1))).toEqual(later);
+    expect(doc.data).not.toHaveProperty('round');
   });
 
   it('形がくずれたデータを読んでも、こわれない', () => {

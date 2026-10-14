@@ -93,10 +93,16 @@ function removeKey(fullKey: string): void {
 const isProgress = (p: Progress | null): p is Progress => !!p && typeof p.sig === 'string' && Array.isArray(p.answers);
 
 /** そのクイズの途中経過。なければ (または、問題が入れかわっていれば) はじめから */
-export function loadProgress(quiz: { id: string; sig: string }): Progress {
+export function loadProgress(quiz: { id: string; sig: string; round?: number }): Progress {
   const saved = read<Progress>(`progress:${quiz.id}`);
   if (isProgress(saved) && saved.sig === quiz.sig) return saved;
-  return { sig: quiz.sig, answers: [], done: false };
+  return { sig: quiz.sig, answers: [], done: false, ...(quiz.round ? { round: quiz.round } : {}) };
+}
+
+/** 単元の練習が、今 何回目か (0 から数える)。まだやっていなければ 0 */
+export function unitRound(quizId: string): number {
+  const saved = read<Progress>(`progress:${quizId}`);
+  return isProgress(saved) && typeof saved.round === 'number' && saved.round > 0 ? Math.floor(saved.round) : 0;
 }
 
 export function saveProgress(id: string, progress: Progress): void {

@@ -1,3 +1,4 @@
+import { dayIndex } from './date';
 import { QUIZ_LENGTH } from './rewards';
 import { rngFromString, shuffle, type Rng } from './rng';
 import type { Grade } from './snapshot';
@@ -57,6 +58,8 @@ export interface Quiz {
   items: QuizItem[];
   /** どの問題がどの順で出ているか。途中経過がこのクイズのものかを見分ける */
   sig: string;
+  /** 単元の練習が何回目か (0 から数える)。今日のチャレンジにはない */
+  round?: number;
 }
 
 export const dailyId = (grade: Grade, date: string) => `daily-g${grade}-${date}`;
@@ -95,48 +98,101 @@ function build(id: string, kind: Quiz['kind'], grade: Grade, questions: [Questio
   return { id, kind, grade, items, sig: built.map((i) => `${i.question.id}:${i.picked.join('.')}`).join('|') };
 }
 
-/** 単元を順にまわって 1 問ずつ、合わせて count 問を取る (単元の数が足りなければ、2 周目に入る) */
-function takeAround(units: readonly Unit[], count: number, rng: Rng): [Question, Unit][] {
-  const pools = shuffle(units, rng).map((unit) => ({ unit, rest: shuffle(unit.questions, rng) }));
+// ---- 問題のならび ----
+// 単元の問題を、決まった順にならべかえた列を 1 巡目・2 巡目…とつなげた「終わりのない列」として考える。
+// 今日のチャレンジも単元の練習も、この列の続きから出すので、一巡するまで同じ問題は出ない。
+
+const decks = new Map<string, Question[]>();
+
+/** 単元の問題を、cycle 巡目の順にならべる */
+function deckOrder(unit: Unit, cycle: number): Question[] {
+  const key = `${unit.id}#${cycle}`;
+  let order = decks.get(key);
+  if (!order || order.length !== unit.questions.length) {
+    // 問題を前半と後半の 2 組に分け (分け方はいつも同じ)、巡ごとに、それぞれの組の中だけでならべかえる。
+    // こうすると、巡のさかいをまたいでも、同じ問題がまた出るまでに少なくとも半分の問題がはさまる
+    const base = shuffle(unit.questions, rngFromString(unit.id));
+    const half = Math.ceil(base.length / 2);
+    const rng = rngFromString(key);
+    order = [...shuffle(base.slice(0, half), rng), ...shuffle(base.slice(half), rng)];
+    decks.set(key, order);
+  }
+  return order;
+}
+
+/** 列の position 番目の問題。同じ巡の中に同じ問題は 1 回しかなく、巡が変わるとならびも変わる */
+export function deck(unit: Unit, position: number): Question {
+  const size = unit.questions.length;
+  const cycle = Math.floor(position / size);
+  return deckOrder(unit, cycle)[position - cycle * size];
+}
+
+/**
+ * 今日のチャレンジの 1 日分のわく (1 日 perDay 問) を、単元に順にまわして取る。
+ * day 日目の k 問目は、通し番号 day × perDay + k のわく。わくは単元を順にまわるので、
+ * 「その単元の何番目の問題か」も計算で決まる (記録を持たなくても、前の日の続きになる)。
+ */
+function takeDaily(units: readonly Unit[], perDay: number, day: number, seed: string): [Question, Unit][] {
+  if (units.length === 0) return [];
+  // 単元をまわる順は、学年ごとにいつも同じ
+  const order = shuffle(units, rngFromString(seed));
   const picked: [Question, Unit][] = [];
-  for (let i = 0; picked.length < count && pools.some((p) => p.rest.length > 0); i++) {
-    const pool = pools[i % pools.length];
-    const q = pool.rest.pop();
-    if (q) picked.push([q, pool.unit]);
+  for (let k = 0; k < perDay; k++) {
+    const slot = day * perDay + k;
+    const index = slot % order.length;
+    const unit = order[index];
+    // これより前に、この単元にまわってきたわくの数
+    let position = Math.floor((slot + order.length - 1 - index) / order.length);
+    let question = deck(unit, position);
+    // 同じ日に同じ問題が重なるのは、単元が少なくて、巡のさかいをまたぐときだけ。そのときは次の巡の同じ場所の問題にする
+    for (let tries = 0; tries < 3 && picked.some(([q]) => q === question); tries++) {
+      position += unit.questions.length;
+      question = deck(unit, position);
+    }
+    picked.push([question, unit]);
   }
   return picked;
 }
 
 /**
- * 今日のチャレンジ。その学年の単元から、かたよらないように 10 問をえらぶ。
+ * 今日のチャレンジ。その学年の単元から、かたよらないように 10 問を出す。
  * 図やちしきの単元 (extra) がある学年は、そこから 3 問、ふつうの単元から 7 問。
  * 日付と学年が同じなら、だれが開いても同じ問題になる。
  */
 export function dailyQuiz(units: readonly Unit[], grade: Grade, date: string): Quiz {
   const id = dailyId(grade, date);
-  const rng = rngFromString(id);
+  const day = dayIndex(date);
   const mine = units.filter((u) => u.grade === grade);
-  const extra = takeAround(
+  const extra = takeDaily(
     mine.filter((u) => u.daily === 'extra'),
     DAILY_EXTRA,
-    rng,
+    day,
+    `extra-g${grade}`,
   );
-  const core = takeAround(
+  const core = takeDaily(
     mine.filter((u) => !u.daily),
     QUIZ_LENGTH - extra.length,
-    rng,
+    day,
+    `core-g${grade}`,
   );
+  const rng = rngFromString(id);
   return build(id, 'daily', grade, shuffle([...core, ...extra], rng), rng);
 }
 
-/** 単元の練習。その単元から 10 問。日がかわると、ちがう問題・ちがう順になる */
-export function unitQuiz(unit: Unit, date: string): Quiz {
+/**
+ * 単元の練習。round 回目 (0 から数える) は、列の round × 10 番目から 10 問。
+ * 40 問の単元なら、4 回やると全部の問題が 1 回ずつ出る。
+ */
+export function unitQuiz(unit: Unit, round: number): Quiz {
   const id = unitQuizId(unit.id);
-  const rng = rngFromString(`${id}-${date}`);
-  const picked = shuffle(unit.questions, rng)
-    .slice(0, QUIZ_LENGTH)
-    .map((q): [Question, Unit] => [q, unit]);
-  return build(id, 'unit', unit.grade, picked, rng);
+  const picked: [Question, Unit][] = [];
+  const length = Math.min(QUIZ_LENGTH, unit.questions.length);
+  // 巡のさかいで同じ問題が重なったら、その先の問題に送る
+  for (let position = round * QUIZ_LENGTH; picked.length < length; position++) {
+    const question = deck(unit, position);
+    if (!picked.some(([q]) => q === question)) picked.push([question, unit]);
+  }
+  return { ...build(id, 'unit', unit.grade, picked, rngFromString(`${id}-${round}`)), round };
 }
 
 /** 正解した数 */

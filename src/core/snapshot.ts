@@ -11,6 +11,8 @@ export interface Progress {
   /** 答えた順に、えらんだ選択肢の番号 (0〜3) */
   answers: number[];
   done: boolean;
+  /** 単元の練習が何回目か (0 から数える)。「もう一回」のたびに進み、次の 10 問になる。今日のチャレンジにはない */
+  round?: number;
   /** さいごに保存した時刻 (ミリ秒)。2 か所の記録を合わせるときに使う */
   at?: number;
 }
@@ -126,7 +128,7 @@ export function toProgressDoc(p: Progress, now: number): ProgressDoc {
     schema: SCHEMA,
     updatedAt: p.at ?? now,
     status: p.done ? 'done' : 'playing',
-    data: { sig: p.sig, answers: p.answers },
+    data: { sig: p.sig, answers: p.answers, ...(p.round ? { round: p.round } : {}) },
   };
 }
 
@@ -137,6 +139,7 @@ export function fromProgressDoc(doc: Partial<ProgressDoc> | null | undefined): P
     sig: d.sig,
     answers: d.answers.filter((n): n is number => typeof n === 'number'),
     done: doc?.status === 'done',
+    ...(typeof d.round === 'number' && d.round > 0 ? { round: d.round } : {}),
     at: typeof doc?.updatedAt === 'number' ? doc.updatedAt : undefined,
   };
 }
