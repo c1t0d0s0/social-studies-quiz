@@ -1099,6 +1099,238 @@ rt {
   gap: 0.5rem;
 }
 
+/* ---- 図 (地図記号・都道府県の形・国旗) ---- */
+/* 地図記号は白い紙の上の色で決められているので、暗い画面でも白い台紙にのせる */
+.fig {
+  display: grid;
+  place-items: center;
+  aspect-ratio: 1;
+  width: 100%;
+  border-radius: 0.5rem;
+  background: #fdfdfa;
+  color: #1c2a4a;
+  overflow: hidden;
+}
+
+.fig svg,
+.fig img {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.fig-symbol svg {
+  width: 72%;
+  height: 72%;
+}
+
+.fig-pref svg {
+  width: 88%;
+  height: 88%;
+  fill: #3f8f76;
+}
+
+/* 国旗は形 (たてよこの比) がまちまちなので、切らずに全体を入れる */
+.fig-flag {
+  aspect-ratio: 3 / 2;
+  background: none;
+  border-radius: 0;
+}
+
+.fig-flag img {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 100%;
+  box-shadow: 0 0 0 1px rgb(28 42 74 / 0.25);
+}
+
+/* 問題に出す大きな図 */
+.fig-prompt {
+  width: min(100%, 13rem);
+  margin: 0.75rem auto 0;
+  box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.fig-flag.fig-prompt {
+  width: min(100%, 16rem);
+  box-shadow: none;
+}
+
+/* ふりかえりに出す小さな図 */
+.fig-small {
+  display: inline-grid;
+  width: 4.5rem;
+  margin: 0.25rem 0.5rem 0.25rem 0;
+  vertical-align: middle;
+  box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.fig-flag.fig-small {
+  box-shadow: none;
+}
+
+/* 図の選択肢は 2 × 2 にならべる */
+.choices-fig {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.choice-fig {
+  position: relative;
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  text-align: center;
+}
+
+.choice-fig .choice-mark {
+  position: absolute;
+  top: 0.4rem;
+  left: 0.4rem;
+  z-index: 1;
+  width: 1.75rem;
+  height: 1.75rem;
+}
+
+.choice-fig .fig {
+  width: min(100%, 8.5rem);
+}
+
+.choice-fig .choice-text {
+  font-size: 0.875rem;
+  line-height: 1.7;
+}
+
+.choice-note {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+
+.unit-hard {
+  margin-right: 0.4rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--red-soft);
+  color: var(--red);
+}
+
+/* ---- ずかん ---- */
+.zukan-links,
+.zukan-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.zukan-links {
+  margin-top: 0.75rem;
+}
+
+.zukan-links .btn,
+.zukan-tabs .btn {
+  min-height: 2.75rem;
+  line-height: 1.9;
+}
+
+.zukan-main {
+  max-width: 60rem;
+  margin: 0 auto;
+  padding: 0.5rem 1rem 4rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+}
+
+.zukan-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.chip {
+  min-height: 2.25rem;
+  padding: 0 0.85rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.875rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chip[aria-pressed='true'] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--on-ink);
+}
+
+.zukan-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 16rem), 1fr));
+  gap: 0.75rem;
+}
+
+.zukan-item {
+  display: grid;
+  grid-template-columns: 5rem minmax(0, 1fr);
+  align-content: start;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
+  padding: 0.75rem;
+  background: var(--paper);
+  box-shadow: 0 0 0 1px var(--rule);
+}
+
+.zukan-item .fig {
+  box-shadow: 0 0 0 1px var(--rule-soft);
+}
+
+.zukan-item .fig-flag {
+  box-shadow: none;
+}
+
+.zukan-name {
+  font-weight: 700;
+  line-height: 1.5;
+}
+
+.zukan-name small {
+  display: block;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+.zukan-note {
+  grid-column: 1 / -1;
+  color: var(--muted);
+  font-size: 0.875rem;
+  line-height: 1.9;
+}
+
+/* 国旗は数が多いので、小さくつめてならべる */
+.zukan-flags {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 9.5rem), 1fr));
+}
+
+.zukan-flags .zukan-item {
+  grid-template-columns: minmax(0, 1fr);
+  justify-items: center;
+  text-align: center;
+}
+
+.zukan-flags .fig {
+  width: 6rem;
+}
+
+.zukan-flags .zukan-name {
+  font-size: 0.875rem;
+}
+
 /* ---- cards.html (デザイン確認用) ---- */
 .cards-preview {
   padding-top: 2rem;

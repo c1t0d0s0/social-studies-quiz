@@ -264,8 +264,8 @@ describe('カードの値段のバランス', () => {
       fastest = Math.min(fastest, n);
       start = addDays(start, 1);
     }
-    // いちばん早い人で、12 週間 (84 日) かかる
-    expect(fastest).toBe(84);
+    // いちばん早い人で、80 日かかる
+    expect(fastest).toBe(80);
   }, 60_000);
 
   it('月の 1 日から始めれば、1 つの学年だけを毎日の人も 3 か月目の末に全部そろう', () => {

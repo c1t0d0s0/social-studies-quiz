@@ -59,7 +59,7 @@ function unitTile(unit: Unit, index: number, today: string): HTMLElement {
     h('span', { class: 'unit-num', 'aria-hidden': 'true' }, String(index + 1)),
     withRuby('span', 'unit-title', unit.title),
     status === 'new'
-      ? h('span', { class: 'unit-meta' }, T.count(unit.questions.length))
+      ? h('span', { class: 'unit-meta' }, unit.daily === 'none' ? h('b', { class: 'unit-hard' }, T.challengeMark) : null, T.count(unit.questions.length))
       : h('span', { class: 'unit-meta unit-status' }, status === 'done' ? T.cleared : T.playing),
     status === 'done' ? hanamaru('hanamaru hanamaru-small') : null,
   );
@@ -73,6 +73,8 @@ export function renderHome(root: HTMLElement): void {
   const run = currentRun(getStamps(), today);
   const dailyAction = { new: T.start, playing: T.resume, done: T.review }[dailyStatus];
   const d = new Date(`${today}T00:00:00Z`);
+  const core = unitsOf(grade).filter((u) => !u.daily);
+  const extra = unitsOf(grade).filter((u) => u.daily);
 
   root.replaceChildren(
     h(
@@ -118,7 +120,32 @@ export function renderHome(root: HTMLElement): void {
           { 'aria-labelledby': 'units-title' },
           h('h2', { id: 'units-title' }, T.units(grade)),
           h('p', { class: 'section-note' }, T.unitsNote),
-          h('div', { class: 'units' }, ...unitsOf(grade).map((u, i) => unitTile(u, i, today))),
+          h('div', { class: 'units' }, ...core.map((u, i) => unitTile(u, i, today))),
+        ),
+        // 図を見て答える単元と、都道府県のちしきの単元 (ない学年もある)
+        extra.length > 0
+          ? h(
+              'section',
+              { 'aria-labelledby': 'figure-title' },
+              h('h2', { id: 'figure-title' }, T.figureUnits),
+              withRuby('p', 'section-note', T.figureUnitsNote),
+              h('div', { class: 'units' }, ...extra.map((u, i) => unitTile(u, core.length + i, today))),
+            )
+          : null,
+        h(
+          'section',
+          { 'aria-labelledby': 'zukan-title' },
+          h('h2', { id: 'zukan-title' }, T.zukanTitle),
+          h('p', { class: 'section-note' }, T.zukanNote),
+          h(
+            'div',
+            { class: 'zukan-links' },
+            ...(Object.keys(T.zukan) as (keyof typeof T.zukan)[]).map((k) => {
+              const link = withRuby('a', 'btn', T.zukan[k]);
+              link.setAttribute('href', `#/zukan/${k}`);
+              return link;
+            }),
+          ),
         ),
       ),
       // あそびかた・音・記録の保存。広い画面では右の列にならべ、スクロールしなくても見えるようにする

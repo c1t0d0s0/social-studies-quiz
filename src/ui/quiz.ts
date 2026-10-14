@@ -1,11 +1,23 @@
-import { countCorrect, type Quiz, type QuizItem } from '../core/quiz';
+import { countCorrect, type Figure, type Quiz, type QuizItem } from '../core/quiz';
 import { UNIT_PASS, type StampReward } from '../core/rewards';
 import { addClear, addStamp, balance, loadProgress, saveProgress, type Progress } from '../core/storage';
 import { h, hanamaru, homeButton, withRuby } from './dom';
+import { figure } from './figure';
 import { playChirp, playCorrect, playWrong, primeSound } from './sound';
 import { T } from './text';
 
 const MARKS = ['1', '2', '3', '4'];
+
+/** 図鑑のページ。図の問題のあとに案内する */
+const ZUKAN: Record<Figure['kind'], string> = { symbol: '#/zukan/symbols', pref: '#/zukan/prefs', flag: '#/zukan/flags' };
+
+/** 選択肢の名前。よみがな (choiceNotes) があれば、うしろに小さくそえる */
+function choiceLabel(item: QuizItem, i: number, cls: string): HTMLElement {
+  const el = withRuby('span', cls, item.choices[i]);
+  const note = item.choiceNotes?.[i];
+  if (note) el.append(h('small', { class: 'choice-note' }, note));
+  return el;
+}
 
 /** 今回のクイズでもらえたもの (終えた直後にだけ出す) */
 interface Reward {
@@ -37,15 +49,23 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
     const index = progress.answers.length;
     const item = quiz.items[index];
     const feedback = h('div', { class: 'quiz-feedback', role: 'status' });
-    const buttons = item.choices.map((choice, i) => {
-      const btn = h(
-        'button',
-        { type: 'button', class: 'choice', onclick: () => answer(i) },
-        h('span', { class: 'choice-mark', 'aria-hidden': 'true' }, MARKS[i]),
-        withRuby('span', 'choice-text', choice),
-      );
-      return btn;
-    });
+    const figures = item.choiceFigures;
+    const buttons = item.choices.map((_, i) =>
+      figures
+        ? // 図の選択肢。名前は答えになってしまうので、答えるまでは出さない
+          h(
+            'button',
+            { type: 'button', class: 'choice choice-fig', 'aria-label': T.choiceNumber(i + 1), onclick: () => answer(i) },
+            h('span', { class: 'choice-mark', 'aria-hidden': 'true' }, MARKS[i]),
+            figure(figures[i]),
+          )
+        : h(
+            'button',
+            { type: 'button', class: 'choice', onclick: () => answer(i) },
+            h('span', { class: 'choice-mark', 'aria-hidden': 'true' }, MARKS[i]),
+            choiceLabel(item, i, 'choice-text'),
+          ),
+    );
     let answered = false;
 
     function answer(picked: number): void {
@@ -59,6 +79,11 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
         btn.disabled = true;
         if (i === item.answer) btn.classList.add('is-correct');
         else if (i === picked) btn.classList.add('is-wrong');
+        // 図の選択肢は、答えたあとに「どれが何だったか」を見せる
+        if (figures) {
+          btn.removeAttribute('aria-label');
+          btn.append(choiceLabel(item, i, 'choice-text'));
+        }
       });
       if (ok) playCorrect();
       else playWrong();
@@ -86,8 +111,9 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
         { class: 'quiz-card' },
         h('p', { class: 'quiz-label' }, h('b', {}, T.questionLabel(index + 1)), withRuby('span', 'quiz-unit', item.unit.title)),
         withRuby('h2', 'quiz-q', item.question.q),
+        item.question.figure ? figure(item.question.figure, 'fig-prompt') : null,
       ),
-      h('div', { class: 'choices' }, ...buttons),
+      h('div', { class: figures ? 'choices choices-fig' : 'choices' }, ...buttons),
       feedback,
     );
     window.scrollTo(0, 0);
@@ -116,6 +142,9 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
       { class: ok ? 'review is-ok' : 'review is-ng' },
       h('p', { class: 'review-head' }, h('span', { class: 'review-mark', 'aria-label': ok ? T.correct : T.wrong }, ok ? '○' : '×'), h('b', {}, T.questionLabel(n))),
       withRuby('p', 'review-q', item.question.q),
+      // 図の問題は、問題の図と正解の図を小さく出す
+      item.question.figure ? figure(item.question.figure, 'fig-small') : null,
+      item.choiceFigures ? figure(item.choiceFigures[item.answer], 'fig-small') : null,
       withRuby('p', 'review-answer', `${T.answerIs}${item.choices[item.answer]}`),
       ok ? null : withRuby('p', 'review-picked', `${T.yourAnswer}${item.choices[picked]}`),
       withRuby('p', 'review-explain', item.question.explain),
@@ -146,6 +175,10 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
           )
         : null;
 
+    // 図の問題が出たクイズのあとは、その図鑑へ案内する
+    const kind = quiz.items.map((i) => i.question.figure ?? i.choiceFigures?.[0]).find((f) => f)?.kind;
+    const zukan = kind && ZUKAN[kind];
+
     const retry = (): void => {
       const fresh: Progress = { sig: quiz.sig, answers: [], done: false };
       progress = fresh;
@@ -172,6 +205,7 @@ export function renderQuiz(root: HTMLElement, quiz: Quiz, title: string, today: 
         'div',
         { class: 'result-actions' },
         // 今日のチャレンジは 1 日 1 回。単元の練習は何回でもやりなおせる
+        zukan ? h('a', { class: 'btn', href: zukan }, T.seeZukan) : null,
         quiz.kind === 'unit' ? h('button', { type: 'button', class: 'btn', onclick: retry }, T.retry) : null,
         h('a', { class: 'btn btn-primary', href: '#/' }, T.goHome),
       ),
