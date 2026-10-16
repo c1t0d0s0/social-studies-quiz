@@ -4,7 +4,14 @@ import { rngFromString, shuffle, type Rng } from './rng';
 import type { Grade } from './snapshot';
 
 /** 問題や選択肢に出す図。絵のデータは大きいので、出すときに読みこむ (ui/figure.ts) */
-export type Figure = { kind: 'symbol'; id: string } | { kind: 'pref'; id: number } | { kind: 'flag'; code: string };
+export type Figure =
+  | { kind: 'symbol'; id: string }
+  | { kind: 'pref'; id: number }
+  | { kind: 'flag'; code: string }
+  /** 日本地図に、場所 (data/japan-map.ts の PLACES) の印を付けたもの */
+  | { kind: 'map'; id: string }
+  /** 都市の雨温図(うおんず) (data/climate.ts の CLIMATE_CITIES) */
+  | { kind: 'climate'; id: string };
 
 export interface Question {
   id: string;

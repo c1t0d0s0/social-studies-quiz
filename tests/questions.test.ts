@@ -4,8 +4,11 @@ import { existsSync } from 'node:fs';
 import { DAILY_EXTRA, countCorrect, dailyQuiz, unitQuiz, type Figure } from '../src/core/quiz';
 import { QUIZ_LENGTH } from '../src/core/rewards';
 import { GRADES } from '../src/core/snapshot';
+import { CLIMATE_CITIES } from '../src/data/climate';
 import { COUNTRIES, FLAG_GROUPS } from '../src/data/countries';
+import { JAPAN_PATHS } from '../src/data/figures/japan-paths';
 import { PREF_PATHS } from '../src/data/figures/pref-paths';
+import { MAP_VIEWS, PLACES, lonLatToXY } from '../src/data/japan-map';
 import { SYMBOL_SVG } from '../src/data/figures/symbol-svg';
 import { PREFS } from '../src/data/prefs';
 import { BASIC_SYMBOLS } from '../src/data/symbols-basic';
@@ -122,7 +125,7 @@ describe('今日のチャレンジ', () => {
         expect(items.filter((i) => i.unit.daily === 'none')).toHaveLength(0); // チャレンジ単元からは出ない
       }
     }
-    expect(GRADES.filter((g) => unitsOf(g).some((u) => u.daily === 'extra'))).toEqual([3, 4, 6]);
+    expect(GRADES.filter((g) => unitsOf(g).some((u) => u.daily === 'extra'))).toEqual([3, 4, 5, 6]);
   });
 
   it('ふつうの単元の問題は、一巡するまで同じ問題が出ない (前の日の続きから出る)', () => {
@@ -164,10 +167,13 @@ describe('図を見て答える単元', () => {
         if (!f) continue;
         if (f.kind === 'pref') expect(PREF_PATHS[f.id]?.length ?? 0, q.id).toBeGreaterThan(100);
         else if (f.kind === 'symbol') expect(SYMBOL_SVG[f.id], q.id).toMatch(/^<svg /);
+        else if (f.kind === 'map') expect(PLACES.some((p) => p.id === f.id), `${q.id}: ${f.id}`).toBe(true);
+        else if (f.kind === 'climate') expect(CLIMATE_CITIES.some((c) => c.id === f.id), `${q.id}: ${f.id}`).toBe(true);
         else expect(existsSync(`public/flags/${f.code.toLowerCase()}.svg`), `${q.id}: ${f.code}`).toBe(true);
       }
     }
     expect(Object.keys(PREF_PATHS)).toHaveLength(47);
+    expect(Object.keys(JAPAN_PATHS)).toHaveLength(47);
     expect(Object.keys(SYMBOL_SVG).sort()).toEqual(SYMBOLS.map((s) => s.id).sort());
   });
 
@@ -190,8 +196,13 @@ describe('図を見て答える単元', () => {
   });
 
   it('図の選択肢は、名前と図が同じ国・都道府県・記号をさしている', () => {
-    const nameOf = (f: Figure) =>
-      f.kind === 'pref' ? PREFS[f.id - 1].name : f.kind === 'flag' ? COUNTRIES.find((c) => c.code === f.code)!.name : SYMBOLS.find((s) => s.id === f.id)!.name;
+    const nameOf = (f: Figure) => {
+      if (f.kind === 'pref') return PREFS[f.id - 1].name;
+      if (f.kind === 'flag') return COUNTRIES.find((c) => c.code === f.code)!.name;
+      if (f.kind === 'map') return PLACES.find((p) => p.id === f.id)!.name;
+      if (f.kind === 'climate') return CLIMATE_CITIES.find((c) => c.id === f.id)!.name;
+      return SYMBOLS.find((s) => s.id === f.id)!.name;
+    };
     for (const { unit, q } of FIGURE) {
       if (!q.choiceFigures || unit.id === 'g3-symbol') continue; // 3 年の記号は、名前を 3 年生向けに書きかえている
       expect(q.choiceFigures.map(nameOf), q.id).toEqual(q.choices);
@@ -202,6 +213,30 @@ describe('図を見て答える単元', () => {
       const labels = ids.map((id) => BASIC_SYMBOLS.find((b) => b.id === id)!.label);
       expect(q.choiceFigures ? labels : labels[0], q.id).toEqual(q.choiceFigures ? q.choices : q.choices[0]);
     }
+  });
+
+  it('日本地図の場所は、どれも問題になっていて、印が地図の中に入っている', () => {
+    const asked = new Set(FIGURE.flatMap(({ q }) => [q.figure, ...(q.choiceFigures ?? [])]).filter((f) => f?.kind === 'map').map((f) => f!.kind === 'map' && f!.id));
+    for (const p of PLACES) {
+      expect(asked.has(p.id), p.id).toBe(true);
+      const [vx, vy, vw, vh] = MAP_VIEWS[p.view];
+      for (const at of p.marker.at) {
+        const [x, y] = lonLatToXY(at);
+        expect(x >= vx && x <= vx + vw && y >= vy && y <= vy + vh, `${p.id}: ${at}`).toBe(true);
+      }
+      expect(p.marker.at.length, p.id).toBeGreaterThanOrEqual(p.marker.shape === 'line' || p.marker.shape === 'arrow' ? 2 : 1);
+    }
+    expect(new Set(PLACES.map((p) => p.id)).size).toBe(PLACES.length);
+    // 雨温図の都市は、地図にも出せる
+    for (const c of CLIMATE_CITIES) {
+      expect(PLACES.find((p) => p.id === c.id)?.name, c.id).toBe(c.name);
+      expect(c.temp, c.id).toHaveLength(12);
+      expect(c.rain, c.id).toHaveLength(12);
+      // 雨温図の目もり (-10〜30℃、0〜500mm) に入る
+      for (const t of c.temp) expect(t >= -10 && t <= 30, c.id).toBe(true);
+      for (const r of c.rain) expect(r >= 0 && r <= 500, c.id).toBe(true);
+    }
+    expect(new Set(CLIMATE_CITIES.map((c) => c.zone)).size).toBe(6);
   });
 
   it('形がほぼ同じ地図記号は、同じ問題の選択肢にならばない', () => {

@@ -1,8 +1,10 @@
 // 図を見て答える単元と、都道府県のちしきの単元。
-// 手書きの問題 (g3.ts〜g6.ts) とちがい、地図記号・都道府県・国旗のデータから組み立てる。
+// 手書きの問題 (g3.ts〜g6.ts) とちがい、地図記号・都道府県・日本地図・雨温図・国旗のデータから組み立てる。
 import type { Figure, Question, Unit } from '../../core/quiz';
 import type { Grade } from '../../core/snapshot';
+import { CLIMATE_CITIES, type ClimateZone } from '../climate';
 import { COUNTRIES, FLAG_GROUPS, REGION_NAMES, type Country, type WorldRegion } from '../countries';
+import { PLACES, placeById, type Place, type PlaceGroup } from '../japan-map';
 import prefQuestions from '../pref-questions.json';
 import { PREFS, prefById, type Pref } from '../prefs';
 import { BASIC_SYMBOLS } from '../symbols-basic';
@@ -191,6 +193,112 @@ const spots = knowledge('g4-spots', '都道府県の 名所', ['名所・観光�
 const nature = knowledge('g4-nature', '都道府県の 自然と 日本一', ['自然・地理', '日本一の記録', '産業・日本一']);
 const culture = knowledge('g4-culture', '都道府県の 歴史(れきし)と 文化', ['歴史・文化']);
 
+// ---- 日本地図と雨温図 (5 年) ----
+
+const mapFigure = (id: string): Figure => ({ kind: 'map', id });
+const climateFigure = (id: string): Figure => ({ kind: 'climate', id });
+
+/** 印の形で、問題文の「赤い ○○」を変える */
+const markWord = (p: Place) => (p.marker.shape === 'line' ? '赤い 線' : p.marker.shape === 'arrow' ? '赤い 矢印' : p.marker.shape === 'area' ? '赤い 丸' : '赤い 点');
+
+/**
+ * 場所 1 つにつき、「地図 → 名前」と「名前 → 地図」の 2 問を作る。まちがいの候補は、同じなかま (平野なら平野) の場所。
+ * noun は問題文に入れる、なかまの呼び方
+ */
+function placeDrafts(groups: [PlaceGroup, string][]): Draft[] {
+  return groups.flatMap(([group, noun]) => {
+    const pool = PLACES.filter((p) => p.group === group);
+    return pool.flatMap((target): Draft[] => {
+      const all = [target, ...pool.filter((p) => p !== target)];
+      const choices = all.map((p) => p.name);
+      return [
+        { q: `地図の ${markWord(target)}で しめした ${noun}は どれでしょう。`, figure: mapFigure(target.id), choices, explain: `${target.name}。${target.explain}` },
+        { q: `「${target.name}」を しめした 地図は どれでしょう。`, choices, choiceFigures: all.map((p) => mapFigure(p.id)), explain: `${target.name}。${target.explain}` },
+      ];
+    });
+  });
+}
+
+const landMap = unit(
+  'g5-mapland',
+  5,
+  '地図で 見る 山地・山脈と 平野',
+  placeDrafts([
+    ['山地・山脈', '山地・山脈'],
+    ['平野', '平野'],
+    ['盆地', '盆地(ぼんち)'],
+  ]),
+);
+
+const waterMap = unit(
+  'g5-mapwater',
+  5,
+  '地図で 見る 川・湖',
+  placeDrafts([
+    ['川', '川'],
+    ['湖', '湖'],
+  ]),
+);
+
+const coastMap = unit(
+  'g5-mapcoast',
+  5,
+  '地図で 見る 半島・島と まわりの 海',
+  placeDrafts([
+    ['半島', '半島'],
+    ['島', '島'],
+    ['海', '海'],
+    ['海流', '海流'],
+  ]),
+);
+
+const industryMap = unit(
+  'g5-mapindustry',
+  5,
+  '地図で 見る 工業地帯・工業地域',
+  placeDrafts([
+    ['工業地帯・地域', '工業地帯・工業地域'],
+    ['工業都市', '都市'],
+  ]),
+);
+
+const ZONES: ClimateZone[] = ['北海道の気候', '日本海側の気候', '太平洋側の気候', '中央高地の気候', '瀬戸内の気候', '南西諸島の気候'];
+const zoneLabel = (z: ClimateZone) => z.replace('瀬戸内', '瀬戸内(せとうち)').replace('諸島', '諸島(しょとう)');
+
+/**
+ * 雨温図 1 つにつき 4 問。雨温図 → 気候 / 気候 → 雨温図 / 雨温図 → 都市 / 地図の都市 → 雨温図。
+ * 雨温図の選択肢は、都市の名前を図の下に出す
+ */
+const rainChart = unit(
+  'g5-rainchart',
+  5,
+  '雨温図(うおんず)と 日本の 気候',
+  CLIMATE_CITIES.flatMap((target): Draft[] => {
+    const all = [target, ...CLIMATE_CITIES.filter((c) => c !== target)];
+    const zone = zoneLabel(target.zone);
+    const explain = `${target.name}の 雨温図(うおんず)で、${zone}です。${target.feature}`;
+    const cityChoices = all.map((c) => c.name);
+    const charts = all.map((c) => climateFigure(c.id));
+    return [
+      {
+        q: 'この 雨温図(うおんず)は、どの 気候の 地いきの ものでしょう。',
+        figure: climateFigure(target.id),
+        choices: [target.zone, ...ZONES.filter((z) => z !== target.zone)].map(zoneLabel),
+        explain,
+      },
+      { q: `「${zone}」の 都市の 雨温図(うおんず)は どれでしょう。`, choices: cityChoices, choiceFigures: charts, explain },
+      { q: 'この 雨温図(うおんず)は、どの 都市の ものでしょう。', figure: climateFigure(target.id), choices: cityChoices, explain },
+      {
+        q: '地図の 赤い 点の 都市の 雨温図(うおんず)は どれでしょう。',
+        figure: mapFigure(placeById(target.id)!.id),
+        choices: cityChoices,
+        choiceFigures: charts,
+        explain,
+      },
+    ];
+  }),
+);
+
 // ---- 国旗 (6 年) ----
 
 const flagFigure = (code: string): Figure => ({ kind: 'flag', code });
@@ -248,6 +356,11 @@ export const FIGURE_UNITS: Unit[] = [
   spots,
   nature,
   culture,
+  landMap,
+  waterMap,
+  coastMap,
+  industryMap,
+  rainChart,
   flagRegion('g6-flagasia', 'asia'),
   flagRegion('g6-flageurope', 'europe'),
   flagRegion('g6-flagafrica', 'africa'),

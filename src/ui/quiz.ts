@@ -8,8 +8,8 @@ import { T } from './text';
 
 const MARKS = ['1', '2', '3', '4'];
 
-/** 図鑑のページ。図の問題のあとに案内する */
-const ZUKAN: Record<Figure['kind'], string> = { symbol: '#/zukan/symbols', pref: '#/zukan/prefs', flag: '#/zukan/flags' };
+/** 図鑑のページ。図の問題のあとに案内する (日本地図と雨温図には図鑑がない) */
+const ZUKAN: Partial<Record<Figure['kind'], string>> = { symbol: '#/zukan/symbols', pref: '#/zukan/prefs', flag: '#/zukan/flags' };
 
 /** 選択肢の名前。よみがな (choiceNotes) があれば、うしろに小さくそえる */
 function choiceLabel(item: QuizItem, i: number, cls: string): HTMLElement {

@@ -1099,7 +1099,7 @@ rt {
   gap: 0.5rem;
 }
 
-/* ---- 図 (地図記号・都道府県の形・国旗) ---- */
+/* ---- 図 (地図記号・都道府県の形・国旗・日本地図・雨温図) ---- */
 /* 地図記号は白い紙の上の色で決められているので、暗い画面でも白い台紙にのせる */
 .fig {
   display: grid;
@@ -1130,6 +1130,11 @@ rt {
   fill: #3f8f76;
 }
 
+/* 雨温図は横長 */
+.fig-climate {
+  aspect-ratio: 320 / 236;
+}
+
 /* 国旗は形 (たてよこの比) がまちまちなので、切らずに全体を入れる */
 .fig-flag {
   aspect-ratio: 3 / 2;
@@ -1155,6 +1160,15 @@ rt {
 .fig-flag.fig-prompt {
   width: min(100%, 16rem);
   box-shadow: none;
+}
+
+/* 日本地図と雨温図は、細かいところまで見えるように大きめに出す */
+.fig-map.fig-prompt {
+  width: min(100%, 18rem);
+}
+
+.fig-climate.fig-prompt {
+  width: min(100%, 20rem);
 }
 
 /* ふりかえりに出す小さな図 */
