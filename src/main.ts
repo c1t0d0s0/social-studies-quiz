@@ -2,7 +2,7 @@ import './styles.css';
 import { restoreStore, startCloud } from './cloud';
 import { jstDate } from './core/date';
 import { dailyQuiz, unitQuiz, unitQuizId } from './core/quiz';
-import { saveProgress, unitRound } from './core/storage';
+import { gradeFromSearch, saveProgress, setGrade, unitRound } from './core/storage';
 import { isGrade } from './core/snapshot';
 import { UNITS, unitById } from './data/units';
 import { renderCards } from './ui/cards';
@@ -14,6 +14,10 @@ import { isZukanKind, renderZukan } from './ui/zukan';
 
 // 前にログインしていた人がいれば、通信を待たずに、この端末に残っているその人の写しで画面を出す
 restoreStore();
+
+// ?grade=3 のように学年が指定されていたら、その学年に切りかえる
+const queryGrade = gradeFromSearch(location.search);
+if (queryGrade) setGrade(queryGrade);
 
 const app = document.getElementById('app')!;
 let cleanup: (() => void) | null = null;

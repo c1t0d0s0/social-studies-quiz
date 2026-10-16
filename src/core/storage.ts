@@ -145,6 +145,12 @@ export function setGrade(grade: Grade): void {
   write('grade', grade);
 }
 
+/** URL の ?grade=3 のような指定から学年を取り出す。3〜6 以外のときは null */
+export function gradeFromSearch(search: string): Grade | null {
+  const n = Number(new URLSearchParams(search).get('grade'));
+  return isGrade(n) ? n : null;
+}
+
 /** 効果音を鳴らすかどうか。何もえらんでいなければ鳴らす */
 export function getSound(): boolean {
   return read<boolean>('sound') !== false;

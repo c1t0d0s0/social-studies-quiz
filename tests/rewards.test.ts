@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { addDays } from '../src/core/date';
 import { CLEAR_POINTS, currentRun, earnedPoints, monthView, rewardFor } from '../src/core/rewards';
-import { addClear, addStamp, balance, buyCard, getCards, getClears, getGrade, getStamps, setGrade } from '../src/core/storage';
+import { addClear, addStamp, balance, buyCard, getCards, getClears, getGrade, getStamps, gradeFromSearch, setGrade } from '../src/core/storage';
 import { CARDS } from '../src/data/cards';
 import { GRADES } from '../src/core/snapshot';
 import { dailyId, unitQuizId } from '../src/core/quiz';
@@ -165,6 +165,18 @@ describe('学年', () => {
     expect(getGrade()).toBe(3);
     setGrade(6);
     expect(getGrade()).toBe(6);
+  });
+
+  it('URL の ?grade=3〜6 から学年を取り出す', () => {
+    expect(gradeFromSearch('?grade=3')).toBe(3);
+    expect(gradeFromSearch('?grade=4')).toBe(4);
+    expect(gradeFromSearch('?grade=5')).toBe(5);
+    expect(gradeFromSearch('?grade=6')).toBe(6);
+    expect(gradeFromSearch('?foo=1&grade=5')).toBe(5);
+    expect(gradeFromSearch('')).toBeNull();
+    expect(gradeFromSearch('?grade=2')).toBeNull();
+    expect(gradeFromSearch('?grade=7')).toBeNull();
+    expect(gradeFromSearch('?grade=abc')).toBeNull();
   });
 });
 
