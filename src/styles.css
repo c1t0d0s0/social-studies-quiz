@@ -180,6 +180,7 @@ rt {
   }
 
   .home-side .account,
+  .home-side .fields,
   .home-side .howto {
     padding: 1rem 1.1rem 1.1rem;
     border-top: 0;
@@ -427,6 +428,72 @@ rt {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+/* ---- 出題される分野 (ホームの右の列) ---- */
+.fields {
+  border-top: 1px solid var(--rule-soft);
+  padding-top: 1rem;
+}
+
+.fields h2 {
+  font-size: 1.125rem;
+  font-weight: 700;
+}
+
+.fields-note {
+  margin-top: 0.4rem;
+  color: var(--muted);
+  font-size: 0.875rem;
+}
+
+.field-group {
+  margin-top: 0.75rem;
+}
+
+.home .field-title {
+  margin: 0 0 0.35rem;
+  color: var(--muted);
+  font-size: 0.8125rem;
+  font-weight: 700;
+}
+
+.field-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+
+.field-chip {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.3rem;
+  padding: 0.1rem 0.7rem;
+  border: 1px solid var(--rule);
+  border-radius: 999px;
+  background: var(--paper);
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.9;
+}
+
+.field-chip rt {
+  font-weight: 500;
+}
+
+.field-chip-today {
+  border-color: var(--ink);
+  background: var(--mark);
+}
+
+.field-chip-off {
+  border-color: var(--rule-soft);
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.field-chip-count {
+  font-size: 0.75rem;
 }
 
 /* ---- スタンプカード ---- */
