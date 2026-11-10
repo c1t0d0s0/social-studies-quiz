@@ -1,3 +1,4 @@
+import { jstDate } from './date';
 import { CLEAR_POINTS, earnedPoints, normalizeStamps, rewardFor, type StampReward } from './rewards';
 import { emptySnapshot, isGrade, type Grade, type OwnedCard, type Progress, type Snapshot } from './snapshot';
 
@@ -118,6 +119,16 @@ export function statusOf(quiz: { id: string; sig: string }): Status {
   if (!isProgress(saved) || saved.sig !== quiz.sig) return 'new';
   if (saved.done) return 'done';
   return saved.answers.length > 0 ? 'playing' : 'new';
+}
+
+/**
+ * そのクイズを最後までやった日 (日本時間の YYYY-MM-DD)。まだ終わっていない、
+ * または問題が入れかわっている (次の回に進んだ) ときは null。花丸をその日だけ出すために使う
+ */
+export function finishedDate(quiz: { id: string; sig: string }): string | null {
+  const saved = read<Progress>(`progress:${quiz.id}`);
+  if (!isProgress(saved) || saved.sig !== quiz.sig || !saved.done || typeof saved.at !== 'number') return null;
+  return jstDate(new Date(saved.at));
 }
 
 /** 今日のチャレンジの途中経過のうち、前の日のものかどうか (前の日のものは消してよい) */

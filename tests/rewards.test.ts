@@ -1,7 +1,7 @@
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { addDays } from '../src/core/date';
 import { CLEAR_POINTS, currentRun, earnedPoints, monthView, rewardFor } from '../src/core/rewards';
-import { addClear, addStamp, balance, buyCard, getCards, getClears, getGrade, getStamps, gradeFromSearch, setGrade } from '../src/core/storage';
+import { addClear, addStamp, balance, buyCard, finishedDate, getCards, getClears, getGrade, getStamps, gradeFromSearch, saveProgress, setGrade } from '../src/core/storage';
 import { CARDS } from '../src/data/cards';
 import { GRADES } from '../src/core/snapshot';
 import { dailyId, unitQuizId } from '../src/core/quiz';
@@ -86,6 +86,27 @@ describe('ポイントの計算', () => {
     expect(rewardFor(days('2026-10-01', 30), '2026-10-31')).toEqual({ added: true, run: 31, weekPoints: 0, monthPoints: 5000 });
     // 2 月 28 日: 28 日目なので週の分と月の分の両方
     expect(rewardFor(days('2026-02-01', 27), '2026-02-28')).toEqual({ added: true, run: 28, weekPoints: 1000, monthPoints: 5000 });
+  });
+});
+
+describe('花丸を出す日', () => {
+  afterEach(() => vi.useRealTimers());
+  const quiz = { id: 'unit-g3-map', sig: 's' };
+
+  it('クイズを最後までやった日 (日本時間) が分かる。終わっていない・次の回に進んだときは分からない', () => {
+    vi.useFakeTimers();
+    // 日本時間の 11/10 の朝 8 時 (協定世界時では 11/9 の 23 時)
+    vi.setSystemTime(new Date('2026-11-09T23:00:00Z'));
+    expect(finishedDate(quiz)).toBeNull();
+    saveProgress(quiz.id, { sig: 's', answers: [0, 1], done: false });
+    expect(finishedDate(quiz)).toBeNull();
+    saveProgress(quiz.id, { sig: 's', answers: [0, 1], done: true });
+    expect(finishedDate(quiz)).toBe('2026-11-10');
+    // 日がかわっても、終わった日は 11/10 のまま (ホームでは、今日とちがうので花丸を出さない)
+    vi.setSystemTime(new Date('2026-11-11T01:00:00Z'));
+    expect(finishedDate(quiz)).toBe('2026-11-10');
+    // 次の回に進むと、問題が入れかわるので null
+    expect(finishedDate({ id: quiz.id, sig: 'next' })).toBeNull();
   });
 });
 

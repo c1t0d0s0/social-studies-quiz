@@ -1,8 +1,8 @@
 import { jstDate } from '../core/date';
-import { dailyQuiz, unitQuiz, unitQuizId, type Unit } from '../core/quiz';
-import { currentRun } from '../core/rewards';
+import { countCorrect, dailyQuiz, unitQuiz, unitQuizId, type Unit } from '../core/quiz';
+import { UNIT_PASS, currentRun } from '../core/rewards';
 import { GRADES, type Grade } from '../core/snapshot';
-import { balance, getGrade, getSound, getStamps, pruneOldDaily, setGrade, setSound, statusOf, unitRound } from '../core/storage';
+import { balance, finishedDate, getGrade, getSound, getStamps, loadProgress, pruneOldDaily, setGrade, setSound, statusOf, unitRound } from '../core/storage';
 import { UNITS, unitsOf } from '../data/units';
 import { accountBox } from './account';
 import { h, hanamaru, withRuby } from './dom';
@@ -51,8 +51,11 @@ function soundSwitch(): HTMLElement {
   return h('p', { class: 'settings' }, btn);
 }
 
-function unitTile(unit: Unit, index: number): HTMLElement {
-  const status = statusOf(unitQuiz(unit, unitRound(unitQuizId(unit.id))));
+function unitTile(unit: Unit, index: number, today: string): HTMLElement {
+  const quiz = unitQuiz(unit, unitRound(unitQuizId(unit.id)));
+  const status = statusOf(quiz);
+  // 花丸は、その日に合格した単元にだけ出す (次の日からは「クリア」の字だけになる)
+  const praised = status === 'done' && finishedDate(quiz) === today && countCorrect(quiz, loadProgress(quiz).answers) >= UNIT_PASS;
   return h(
     'a',
     { class: `unit unit-${status}`, href: `#/unit/${unit.id}` },
@@ -61,7 +64,7 @@ function unitTile(unit: Unit, index: number): HTMLElement {
     status === 'new'
       ? h('span', { class: 'unit-meta' }, unit.daily === 'none' ? h('b', { class: 'unit-hard' }, T.challengeMark) : null, T.count(unit.questions.length))
       : h('span', { class: 'unit-meta unit-status' }, status === 'done' ? T.cleared : T.playing),
-    status === 'done' ? hanamaru('hanamaru hanamaru-small') : null,
+    praised ? hanamaru('hanamaru hanamaru-small') : null,
   );
 }
 
@@ -155,7 +158,7 @@ export function renderHome(root: HTMLElement): void {
           { 'aria-labelledby': 'units-title' },
           h('h2', { id: 'units-title' }, T.units(grade)),
           h('p', { class: 'section-note' }, T.unitsNote),
-          h('div', { class: 'units' }, ...core.map((u, i) => unitTile(u, i))),
+          h('div', { class: 'units' }, ...core.map((u, i) => unitTile(u, i, today))),
         ),
         // 図を見て答える単元と、都道府県のちしきの単元 (ない学年もある)
         extra.length > 0
@@ -164,7 +167,7 @@ export function renderHome(root: HTMLElement): void {
               { 'aria-labelledby': 'figure-title' },
               h('h2', { id: 'figure-title' }, T.figureUnits),
               withRuby('p', 'section-note', T.figureUnitsNote),
-              h('div', { class: 'units' }, ...extra.map((u, i) => unitTile(u, core.length + i))),
+              h('div', { class: 'units' }, ...extra.map((u, i) => unitTile(u, core.length + i, today))),
             )
           : null,
         h(
