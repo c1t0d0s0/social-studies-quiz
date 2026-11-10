@@ -2,7 +2,7 @@ import { jstDate } from '../core/date';
 import { countCorrect, dailyQuiz, unitQuiz, unitQuizId, type Unit } from '../core/quiz';
 import { UNIT_PASS, currentRun } from '../core/rewards';
 import { GRADES, type Grade } from '../core/snapshot';
-import { balance, finishedDate, getGrade, getSound, getStamps, loadProgress, pruneOldDaily, setGrade, setSound, statusOf, unitRound } from '../core/storage';
+import { balance, finishedDate, getGrade, getSound, getStamps, loadProgress, pruneOldDaily, setGrade, setSound, statusOf, unitRound, type Status } from '../core/storage';
 import { UNITS, unitsOf } from '../data/units';
 import { accountBox } from './account';
 import { h, hanamaru, withRuby } from './dom';
@@ -53,9 +53,11 @@ function soundSwitch(): HTMLElement {
 
 function unitTile(unit: Unit, index: number, today: string): HTMLElement {
   const quiz = unitQuiz(unit, unitRound(unitQuizId(unit.id)));
-  const status = statusOf(quiz);
-  // 花丸は、その日に合格した単元にだけ出す (次の日からは「クリア」の字だけになる)
-  const praised = status === 'done' && finishedDate(quiz) === today && countCorrect(quiz, loadProgress(quiz).answers) >= UNIT_PASS;
+  const progress = loadProgress(quiz);
+  // 「クリア」と花丸は、その日に合格した単元にだけ出す (次の日からは、まだやっていない単元と同じ見た目にもどる)。
+  // ポイントをもらったかどうか (getClears) は、表示には使わない
+  const cleared = progress.done && finishedDate(quiz) === today && countCorrect(quiz, progress.answers) >= UNIT_PASS;
+  const status: Status = cleared ? 'done' : !progress.done && progress.answers.length > 0 ? 'playing' : 'new';
   return h(
     'a',
     { class: `unit unit-${status}`, href: `#/unit/${unit.id}` },
@@ -64,7 +66,7 @@ function unitTile(unit: Unit, index: number, today: string): HTMLElement {
     status === 'new'
       ? h('span', { class: 'unit-meta' }, unit.daily === 'none' ? h('b', { class: 'unit-hard' }, T.challengeMark) : null, T.count(unit.questions.length))
       : h('span', { class: 'unit-meta unit-status' }, status === 'done' ? T.cleared : T.playing),
-    praised ? hanamaru('hanamaru hanamaru-small') : null,
+    cleared ? hanamaru('hanamaru hanamaru-small') : null,
   );
 }
 
